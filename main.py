@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, Form
+from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 import mysql.connector
@@ -50,6 +50,7 @@ def result(request: Request, player1: str, player2: str):
 
     cursor.execute("SELECT * FROM esa_prepared WHERE Player = %s", (player1,))
     row1 = cursor.fetchone()
+    cursor.fetchall()  # 🛠 oprava problému s "Unread result found"
 
     cursor.execute("SELECT * FROM esa_prepared WHERE Player = %s", (player2,))
     row2 = cursor.fetchone()
@@ -75,7 +76,7 @@ def result(request: Request, player1: str, player2: str):
     try:
         gc = get_google_client()
         sh = gc.open("Aceapp")
-        worksheet = sh.sheet1  # nebo sh.worksheet("Esa výsledky"), pokud máš jiný název
+        worksheet = sh.sheet1  # nebo sh.worksheet("Esa výsledky")
 
         datum = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         row = [
