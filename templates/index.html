@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Výpočet es a dvojchyb</title>
+</head>
+<body>
+    <h2>Vyber 2 hráče/hráčky</h2>
+    <form method="get" action="/result">
+        <label for="player1">Hráč 1:</label>
+        <select name="player1">
+            {% for name in players %}
+            <option value="{{ name }}" {% if name == selected1 %}selected{% endif %}>{{ name }}</option>
+            {% endfor %}
+        </select>
+        <br><br>
+        <label for="player2">Hráč 2:</label>
+        <select name="player2">
+            {% for name in players %}
+            <option value="{{ name }}" {% if name == selected2 %}selected{% endif %}>{{ name }}</option>
+            {% endfor %}
+        </select>
+        <br><br>
+        <button type="submit">Spočítat</button>
+    </form>
+
+    {% if e1 is defined %}
+    <h3>Výsledek:</h3>
+
+    <p><strong>{{ selected1 }}</strong><br>
+        Ace%: {{ (p1.ah * 100) | round(2) }} %<br>
+        vAce%: {{ (p1.va * 100) | round(2) }} %<br>
+        Dvojchyby%: {{ (p1.df * 100) | round(2) }} %<br>
+        ➜ očekávaná esa: {{ e1 }}<br>
+        ➜ očekávané dvojchyby: {{ df1 }}
+    </p>
+
+    <p><strong>{{ selected2 }}</strong><br>
+        Ace%: {{ (p2.ah * 100) | round(2) }} %<br>
+        vAce%: {{ (p2.va * 100) | round(2) }} %<br>
+        Dvojchyby%: {{ (p2.df * 100) | round(2) }} %<br>
+        ➜ očekávaná esa: {{ e2 }}<br>
+        ➜ očekávané dvojchyby: {{ df2 }}
+    </p>
+
+    <p><strong>Celkem očekávaných es: {{ total_aces }}</strong></p>
+    <p><strong>Celkem očekávaných dvojchyb: {{ total_dfs }}</strong></p>
+    {% endif %}
+</body>
+</html>
