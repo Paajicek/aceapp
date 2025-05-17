@@ -48,9 +48,9 @@ def result(request: Request, player1: str, player2: str):
     conn = get_connection()
     cursor = conn.cursor()
 
+    # 🛠 Jeden dotaz = jedno zpracování
     cursor.execute("SELECT * FROM esa_prepared WHERE Player = %s", (player1,))
     row1 = cursor.fetchone()
-    cursor.fetchall()  # ← VYČISTÍME buffer po prvním dotazu
 
     cursor.execute("SELECT * FROM esa_prepared WHERE Player = %s", (player2,))
     row2 = cursor.fetchone()
@@ -72,7 +72,6 @@ def result(request: Request, player1: str, player2: str):
     celkem_esa = round(esa1 + esa2, 2)
     celkem_df = round(df1 + df2, 2)
 
-    # Zápis do Google Sheets
     try:
         gc = get_google_client()
         sh = gc.open("Aceapp")
