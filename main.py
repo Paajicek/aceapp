@@ -45,17 +45,19 @@ def form(request: Request):
 
 @app.get("/result", response_class=HTMLResponse)
 def result(request: Request, player1: str, player2: str):
-    conn = get_connection()
-    cursor = conn.cursor()
+    # načtení prvního hráče
+    conn1 = get_connection()
+    cursor1 = conn1.cursor()
+    cursor1.execute("SELECT * FROM esa_prepared WHERE Player = %s", (player1,))
+    row1 = cursor1.fetchone()
+    conn1.close()
 
-    # 🛠 Jeden dotaz = jedno zpracování
-    cursor.execute("SELECT * FROM esa_prepared WHERE Player = %s", (player1,))
-    row1 = cursor.fetchone()
-
-    cursor.execute("SELECT * FROM esa_prepared WHERE Player = %s", (player2,))
-    row2 = cursor.fetchone()
-
-    conn.close()
+    # načtení druhého hráče
+    conn2 = get_connection()
+    cursor2 = conn2.cursor()
+    cursor2.execute("SELECT * FROM esa_prepared WHERE Player = %s", (player2,))
+    row2 = cursor2.fetchone()
+    conn2.close()
 
     def vypocet(player, ah, df, vah, p_tour_ace, p_tour_df, opponent_vah, typ):
         S = 70 if typ == "M" else 65
