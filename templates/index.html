@@ -1,49 +1,36 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Výpočet es a dvojchyb</title>
+    <meta charset="UTF-8">
+    <title>Výsledek</title>
 </head>
 <body>
-    <h2>Vyber 2 hráče/hráčky</h2>
-    <form method="get" action="/result">
-        <label for="player1">Hráč 1:</label>
-        <select name="player1">
-            {% for name in players %}
-            <option value="{{ name }}" {% if name == selected1 %}selected{% endif %}>{{ name }}</option>
-            {% endfor %}
-        </select>
-        <br><br>
-        <label for="player2">Hráč 2:</label>
-        <select name="player2">
-            {% for name in players %}
-            <option value="{{ name }}" {% if name == selected2 %}selected{% endif %}>{{ name }}</option>
-            {% endfor %}
-        </select>
-        <br><br>
-        <button type="submit">Spočítat</button>
-    </form>
+    <h1>Výsledek výpočtu</h1>
 
-    {% if e1 is defined %}
-    <h3>Výsledek:</h3>
+    <h2>{{ player1 }}</h2>
+    <ul>
+        <li>Ace%: {{ ace1 }}%</li>
+        <li>vAce%: {{ vace1 }}%</li>
+        <li>DF%: {{ df1 }}%</li>
+        <li>Očekávaná esa: {{ esa1 }}</li>
+        <li>Očekávané dvojchyby: {{ dvojchyby1 }}</li>
+    </ul>
 
-    <p><strong>{{ selected1 }}</strong><br>
-        Ace%: {{ (p1.ah * 100) | round(2) }} %<br>
-        vAce%: {{ (p1.va * 100) | round(2) }} %<br>
-        Dvojchyby%: {{ (p1.df * 100) | round(2) }} %<br>
-        ➜ očekávaná esa: {{ e1 }}<br>
-        ➜ očekávané dvojchyby: {{ df1 }}
-    </p>
+    <h2>{{ player2 }}</h2>
+    <ul>
+        <li>Ace%: {{ ace2 }}%</li>
+        <li>vAce%: {{ vace2 }}%</li>
+        <li>DF%: {{ df2 }}%</li>
+        <li>Očekávaná esa: {{ esa2 }}</li>
+        <li>Očekávané dvojchyby: {{ dvojchyby2 }}</li>
+    </ul>
 
-    <p><strong>{{ selected2 }}</strong><br>
-        Ace%: {{ (p2.ah * 100) | round(2) }} %<br>
-        vAce%: {{ (p2.va * 100) | round(2) }} %<br>
-        Dvojchyby%: {{ (p2.df * 100) | round(2) }} %<br>
-        ➜ očekávaná esa: {{ e2 }}<br>
-        ➜ očekávané dvojchyby: {{ df2 }}
-    </p>
+    <h3>Souhrn</h3>
+    <ul>
+        <li>Celkem očekávaných es: {{ celkem_esa }}</li>
+        <li>Celkem očekávaných dvojchyb: {{ celkem_df }}</li>
+    </ul>
 
-    <p><strong>Celkem očekávaných es: {{ total_aces }}</strong></p>
-    <p><strong>Celkem očekávaných dvojchyb: {{ total_dfs }}</strong></p>
-    {% endif %}
+    <a href="/">Zpět</a>
 </body>
 </html>
