@@ -1,132 +1,100 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Form
+from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 import mysql.connector
-from starlette.responses import HTMLResponse
+import os
+import datetime
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
-from datetime import datetime
-import os
+import json
+import tempfile
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
 
-# Připojení k databázi
 def get_connection():
     return mysql.connector.connect(
         host="db4free.net",
         user="paajicek",
         password="Bohemka1905",
-        database="esatenis",
-        consume_results=True
+        database="esatenis"
     )
 
-# Výpočet es
-def calculate_aces(server, receiver):
-    try:
-        S_server = 70 if server["Gender"] == "M" else 65
-        P_tour = 0.089 if receiver["Gender"] == "M" else 0.042
-        ah = float(server["ah"])
-        va = float(receiver["va"])
-        if P_tour == 0 or ah is None or va is None:
-            return 0
-        return S_server * ah * (va / P_tour)
-    except Exception as e:
-        print("Chyba při výpočtu es:", e)
-        return 0
+def get_google_client():
+    credentials_json = os.environ.get("GOOGLE_CREDENTIALS_JSON")
+    if not credentials_json:
+        raise Exception("Chybí proměnná GOOGLE_CREDENTIALS_JSON")
 
-# Výpočet dvojchyb
-def calculate_double_faults(player):
-    try:
-        S = 70 if player["Gender"] == "M" else 65
-        df = float(player["df"])
-        if df is None:
-            return 0
-        return S * df
-    except Exception as e:
-        print("Chyba při výpočtu dvojchyb:", e)
-        return 0
-
-# Zápis do Google Sheets
-def zapis_do_google_sheets(data):
-    try:
-        scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-        creds = ServiceAccountCredentials.from_json_keyfile_name('aceapp-460119-b692dcaf1269.json', scope)
-        client = gspread.authorize(creds)
-        sheet = client.open("Aceapp").sheet1
-        sheet.append_row(data)
-    except Exception as e:
-        print("Chyba při zápisu do Google Sheets:", e)
+    with tempfile.NamedTemporaryFile(mode='w+', delete=False, suffix='.json') as temp_file:
+        temp_file.write(credentials_json)
+        temp_file.flush()
+        credentials = ServiceAccountCredentials.from_json_keyfile_name(
+            temp_file.name,
+            ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
+        )
+    return gspread.authorize(credentials)
 
 @app.get("/", response_class=HTMLResponse)
-async def form(request: Request):
+def form(request: Request):
     conn = get_connection()
-    cursor = conn.cursor(dictionary=True)
+    cursor = conn.cursor()
     cursor.execute("SELECT DISTINCT Player FROM esa_prepared ORDER BY Player")
-    players = [row["Player"] for row in cursor.fetchall()]
-    cursor.close()
+    players = [row[0] for row in cursor.fetchall()]
     conn.close()
     return templates.TemplateResponse("index.html", {"request": request, "players": players})
 
 @app.get("/result", response_class=HTMLResponse)
-async def result(request: Request, player1: str, player2: str):
+def result(request: Request, player1: str, player2: str):
     conn = get_connection()
-    cursor = conn.cursor(dictionary=True)
+    cursor = conn.cursor()
 
     cursor.execute("SELECT * FROM esa_prepared WHERE Player = %s", (player1,))
-    p1 = cursor.fetchone()
+    row1 = cursor.fetchone()
 
     cursor.execute("SELECT * FROM esa_prepared WHERE Player = %s", (player2,))
-    p2 = cursor.fetchone()
+    row2 = cursor.fetchone()
 
-    cursor.close()
     conn.close()
 
-    if not p1 or not p2:
-        return templates.TemplateResponse("index.html", {
-            "request": request,
-            "players": [],
-            "error": "Nepodařilo se načíst data pro hráče."
-        })
+    def vypocet(player, ah, df, vah, p_tour_ace, p_tour_df, opponent_vah, typ):
+        S = 70 if typ == "M" else 65
+        expected_aces = S * ah * (opponent_vah / p_tour_ace)
+        expected_dfs = S * df * (opponent_vah / p_tour_df)
+        return round(expected_aces, 2), round(expected_dfs, 2)
 
-    e1 = calculate_aces(p1, p2)
-    e2 = calculate_aces(p2, p1)
-    df1 = calculate_double_faults(p1)
-    df2 = calculate_double_faults(p2)
-    total_aces = round(e1 + e2, 2)
-    total_dfs = round(df1 + df2, 2)
+    p_tour_ace = 8.9 if row1[1] == "M" else 4.2
+    p_tour_df = 3.2  # odhad průměru dvojchyb
 
-    # Připravíme data k zápisu do tabulky
-    zapis_data = [
-        datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        p1["Player"],
-        round(p1["ah"] * 100, 2),
-        round(p1["va"] * 100, 2),
-        round(p1["df"] * 100, 2),
-        round(e1, 2),
-        round(df1, 2),
-        p2["Player"],
-        round(p2["ah"] * 100, 2),
-        round(p2["va"] * 100, 2),
-        round(p2["df"] * 100, 2),
-        round(e2, 2),
-        round(df2, 2),
-        total_aces,
-        total_dfs
-    ]
+    esa1, df1 = vypocet(*row1, p_tour_ace, p_tour_df, row2[3], row1[1])
+    esa2, df2 = vypocet(*row2, p_tour_ace, p_tour_df, row1[3], row2[1])
 
-    zapis_do_google_sheets(zapis_data)
+    celkem_esa = round(esa1 + esa2, 2)
+    celkem_df = round(df1 + df2, 2)
+
+    # Google Sheets zápis
+    try:
+        gc = get_google_client()
+        sh = gc.open("Aceapp")
+        worksheet = sh.sheet1  # nebo sh.worksheet("Esa výsledky"), pokud máš jiný název
+
+        datum = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        row = [
+            datum, player1, f"{row1[2]*100:.1f}%", f"{row1[4]*100:.1f}%", f"{row1[3]*100:.1f}%", esa1, df1,
+            player2, f"{row2[2]*100:.1f}%", f"{row2[4]*100:.1f}%", f"{row2[3]*100:.1f}%", esa2, df2,
+            celkem_esa, celkem_df
+        ]
+        worksheet.append_row(row)
+    except Exception as e:
+        print("Chyba při zápisu do Google Sheets:", e)
 
     return templates.TemplateResponse("index.html", {
         "request": request,
-        "players": [p1["Player"], p2["Player"]],
-        "selected1": p1["Player"],
-        "selected2": p2["Player"],
-        "e1": round(e1, 2),
-        "e2": round(e2, 2),
-        "df1": round(df1, 2),
-        "df2": round(df2, 2),
-        "total_aces": total_aces,
-        "total_dfs": total_dfs,
-        "p1": p1,
-        "p2": p2
+        "players": [player1, player2],
+        "result": {
+            "player1": player1,
+            "ace1": row1[2], "vace1": row1[4], "df1": row1[3], "esa1": esa1, "dvojchyby1": df1,
+            "player2": player2,
+            "ace2": row2[2], "vace2": row2[4], "df2": row2[3], "esa2": esa2, "dvojchyby2": df2,
+            "celkem_esa": celkem_esa, "celkem_df": celkem_df
+        }
     })
