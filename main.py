@@ -50,7 +50,7 @@ def result(request: Request, player1: str, player2: str):
 
     cursor.execute("SELECT * FROM esa_prepared WHERE Player = %s", (player1,))
     row1 = cursor.fetchone()
-    cursor.fetchall()  # 🛠 oprava problému s "Unread result found"
+    cursor.fetchall()  # ← VYČISTÍME buffer po prvním dotazu
 
     cursor.execute("SELECT * FROM esa_prepared WHERE Player = %s", (player2,))
     row2 = cursor.fetchone()
@@ -64,7 +64,7 @@ def result(request: Request, player1: str, player2: str):
         return round(expected_aces, 2), round(expected_dfs, 2)
 
     p_tour_ace = 8.9 if row1[1] == "M" else 4.2
-    p_tour_df = 3.2  # odhad průměru dvojchyb
+    p_tour_df = 3.2
 
     esa1, df1 = vypocet(*row1, p_tour_ace, p_tour_df, row2[3], row1[1])
     esa2, df2 = vypocet(*row2, p_tour_ace, p_tour_df, row1[3], row2[1])
@@ -72,11 +72,11 @@ def result(request: Request, player1: str, player2: str):
     celkem_esa = round(esa1 + esa2, 2)
     celkem_df = round(df1 + df2, 2)
 
-    # Google Sheets zápis
+    # Zápis do Google Sheets
     try:
         gc = get_google_client()
         sh = gc.open("Aceapp")
-        worksheet = sh.sheet1  # nebo sh.worksheet("Esa výsledky")
+        worksheet = sh.sheet1
 
         datum = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         row = [
